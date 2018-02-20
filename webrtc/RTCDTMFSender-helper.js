@@ -8,17 +8,25 @@
 
 // The following helper functions are called from RTCPeerConnection-helper.js:
 //   getTrackFromUserMedia
+//   doSignalingHandshake
 
 // Create a RTCDTMFSender using getUserMedia()
 function createDtmfSender(pc = new RTCPeerConnection()) {
+  var dtmfSender;
   return getTrackFromUserMedia('audio')
   .then(([track, mediaStream]) => {
     const sender = pc.addTrack(track, mediaStream);
-    const dtmfSender = sender.dtmf;
-
+    dtmfSender = sender.dtmf;
     assert_true(dtmfSender instanceof RTCDTMFSender,
-      'Expect audio sender.dtmf to be set to a RTCDTMFSender');
-
+                'Expect audio sender.dtmf to be set to a RTCDTMFSender');
+    // Note: spec bug open - https://github.com/w3c/webrtc-pc/issues/1774
+    // on whether sending should be possible before negotiation.
+    const pc2 = new RTCPeerConnection();
+    Object.defineProperty(pc, 'otherPc', { value: pc2 });
+    exchangeIceCandidates(pc, pc2);
+    return doSignalingHandshake(pc, pc2);
+  }).then(() => {
+    assert_true(dtmfSender.canInsertDTMF);
     return dtmfSender;
   });
 }
@@ -89,12 +97,12 @@ function test_tone_change_events(testFunc, toneChanges, desc) {
             t.step_func(() => {
               t.done();
               pc.close();
+              pc.otherPc.close();
             }), expectedDuration + 100);
         }
       });
 
       dtmfSender.addEventListener('tonechange', onToneChange);
-
       testFunc(t, dtmfSender, pc);
     })
     .catch(t.step_func(err => {
