@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Test currency system usage in PaymentRequest Constructor</title>
+<link rel="help" href="https://w3c.github.io/browser-payment-api/#constructor">
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script>
+/**
+dictionary PaymentCurrencyAmount {
+    required DOMString currency;
+    required DOMString value;
+             DOMString currencySystem = "urn:iso:std:iso:4217"; // only value for now
+};
+**/
+
+const defaultMethods = [
+  Object.freeze({
+    supportedMethods: "https://wpt.fyi",
+  }),
+];
+
+const wellFormedCurrencySystems = [
+  "urn:iso:std:iso:4217", // there is only one currency system for now: ISO 4217
+];
+
+const invalidCurrencySystems = [
+  "bitcoin",
+  "ethereum",
+  "MileagePlus",
+  "Rakuten",
+];
+
+// The following are the same set of valid/invalid codes that are used in
+// the ECMAScript Internationalization API Specification (ECMA-402) test suite.
+const wellFormedCurrencyCodes = [
+  "BOB",
+  "EUR",
+  "usd", // currency codes are case-insensitive
+  "XdR",
+  "xTs",
+];
+
+const invalidCurrencyCodes = [
+  "€",
+  "$",
+  "SFr.",
+  "DM",
+  "KR₩",
+  "702",
+  "ßP",
+  "ınr",
+];
+
+const RANGE_ERROR = new RangeError();
+
+const invalidAmount = Object.freeze({
+  currencySystem: "¡INVALID!",
+  currency: "¡INVALID!",
+  value: "1.00",
+});
+
+const invalidTotal = {
+  total: {
+    label: "Invalid total",
+    amount: invalidAmount,
+  },
+};
+
+// Ensure we don't get false positives
+function smokeTest() {
+  new PaymentRequest(defaultMethods, invalidTotal);
+}
+
+// Check for support of currency codes
+test(() => {
+  assert_throws(RANGE_ERROR, smokeTest, "Expected smoke test to throw.");
+  for (const validCurrencyCode of wellFormedCurrencyCodes) {
+    const amount = {
+      currency: validCurrencyCode,
+      value: "1.00",
+    };
+    const total = {
+      label: "Total",
+      amount,
+    };
+    const details = {
+      total,
+    };
+    try {
+      new PaymentRequest(defaultMethods, details);
+    } catch (err) {
+      assert_unreached(
+        `Unexpected exception for details.total.amount.currency "${validCurrencyCode}": ${err.message}`
+      );
+    }
+  }
+}, "Check and canonicalize valid currency code and rethrow any exceptions");
+
+test(() => {
+  assert_throws(RANGE_ERROR, smokeTest, "Expected smoke test to throw.");
+  for (const invalidCurrency of invalidCurrencyCodes) {
+    const amount = {
+      currency: invalidCurrency,
+      value: "1.00",
+    };
+    const total = {
+      label: "Total",
+      amount,
+    };
+    const details = {
+      total,
+    };
+    assert_throws(
+      RANGE_ERROR,
+      () => {
+        new PaymentRequest(defaultMethods, details);
+      },
+      `Expected RangeError for details.total.amount given ("${invalidCurrency}").`
+    );
+  }
+}, "Check and canonicalize invalid currency code and rethrow any exceptions.");
+
+// Check for support of currency systems
+test(() => {
+  assert_throws(RANGE_ERROR, smokeTest, "Expected smoke test to throw.");
+  for (const validCurrencySystem of wellFormedCurrencySystems) {
+    const amount = {
+      currencySystem: validCurrencySystem,
+      currency: "usd",
+      value: "1.00",
+    };
+    const total = {
+      label: "Total",
+      amount,
+    };
+    const details = {
+      total,
+    };
+    try {
+      new PaymentRequest(defaultMethods, details);
+    } catch (err) {
+      assert_unreached(
+        `Unexpected exception for details.total.amount.currencySystem "${validCurrencySystem}": ${err.message}`
+      );
+    }
+  }
+}, "Check and canonicalize valid currency system and rethrow any exceptions");
+
+// Validate the currency system
+test(() => {
+  assert_throws(RANGE_ERROR, smokeTest, "Expected smoke test to throw.");
+  for (const invalidCurrencySystem of invalidCurrencySystems) {
+    const amount = {
+      currencySystem: invalidCurrencySystem,
+      currency: "usd",
+      value: "1.00",
+    };
+    const total = {
+      label: "Total",
+      amount,
+    };
+    const details = {
+      total,
+    };
+    try {
+      new PaymentRequest(defaultMethods, details);
+    } catch (err) {
+      assert_unreached(
+        `Unexpected exception for details.total.amount.currencySystem "${invalidCurrencySystem}": ${err.message}`
+      );
+    }
+  }
+}, "Check and canonicalize invalid currency system and rethrow any exceptions");
+
+</script>
